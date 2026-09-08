@@ -1,10 +1,21 @@
 {
-  "name": "customer360-mock-server",
+  "name": "cust360",
+  "private": true,
   "version": "0.1.0",
-  "description": "Mock API server for the Customer 360 & Relationship Copilot — implements api/openapi.yaml over in-memory mock data.",
-  "main": "server.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:demo": "node server.js",
+    "dev:api": "npm --prefix apps/api run start:dev",
+    "dev:web": "npm --prefix apps/web run start",
+    "build:api": "npm --prefix apps/api run build",
+    "build:web": "npm --prefix apps/web run build",
+    "build": "npm run build:api && npm run build:web",
+    "start:mock": "node server.js",
+    "start:production": "npm run dev:api"
   },
   "dependencies": {
     "cors": "^2.8.5",

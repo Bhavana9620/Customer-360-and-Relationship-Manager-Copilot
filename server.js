@@ -1,11 +1,11 @@
 // ============================================================
-// Mock API server — implements every path in api/openapi.yaml
-// against the in-memory data in data.js. Frontend builds against
-// this today; backend replaces the *inside* of these handlers
-// with real DB queries (see db/schema.sql) later, same paths,
-// same response shapes, so the frontend never has to change.
+// DEMO-ONLY LEGACY MOCK SERVER
+// This Express server is not the production implementation.
+// The real enterprise application lives in apps/api (NestJS)
+// and apps/web (Angular). This file is retained only for demo
+// workflow validation and local mock testing.
 //
-// Run:  npm install && npm start   (defaults to :4000)
+// Run:  npm install && npm run start:demo   (defaults to :4000)
 // ============================================================
 
 const express = require('express');
@@ -15,6 +15,7 @@ const { USERS, CUSTOMERS, AUDIT_LOG, AI_INTERACTIONS, CHAT_HISTORY } = require('
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(__dirname));
 
 const PORT = process.env.PORT || 4000;
 
@@ -46,6 +47,16 @@ function requireRole(...roles) {
 function getCustomerOr404(req, res) {
   const c = CUSTOMERS.find(c => c.id === req.params.customerId);
   if (!c) { res.status(404).json({ error: 'not_found', message: 'Customer not found' }); return null; }
+  return c;
+}
+
+function getViewableCustomer(req, res) {
+  const c = getCustomerOr404(req, res);
+  if (!c) return null;
+  if (!canViewCustomer(req.user, c.id)) {
+    res.status(403).json({ error: 'forbidden', message: 'Not in your portfolio' });
+    return null;
+  }
   return c;
 }
 
@@ -124,41 +135,45 @@ app.get('/api/customers', (req, res) => {
 });
 
 app.get('/api/customers/:customerId', (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
-  if (!canViewCustomer(req.user, c.id)) return res.status(403).json({ error: 'forbidden', message: 'Not in your portfolio' });
+  const c = getViewableCustomer(req, res); if (!c) return;
   logAudit(req.user, 'VIEW_PROFILE', `Opened profile ${c.id}`);
   res.json(toCustomerProfile(c, req.user));
 });
 
 app.get('/api/customers/:customerId/accounts', (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
+  const c = getViewableCustomer(req, res); if (!c) return;
+  logAudit(req.user, 'VIEW_ACCOUNTS', `Viewed accounts for ${c.id}`);
   res.json(c.accounts);
 });
 app.get('/api/customers/:customerId/loans', (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
+  const c = getViewableCustomer(req, res); if (!c) return;
+  logAudit(req.user, 'VIEW_LOANS', `Viewed loans for ${c.id}`);
   res.json(c.loans);
 });
 app.get('/api/customers/:customerId/cards', (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
+  const c = getViewableCustomer(req, res); if (!c) return;
+  logAudit(req.user, 'VIEW_CARDS', `Viewed cards for ${c.id}`);
   res.json(c.cards); // numbers already pre-masked in the data layer
 });
 
 app.get('/api/customers/:customerId/transactions', (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
+  const c = getViewableCustomer(req, res); if (!c) return;
   const page = parseInt(req.query.page || '1', 10);
   const pageSize = parseInt(req.query.pageSize || '20', 10);
   let items = c.transactions;
   if (req.query.type) items = items.filter(t => t.type === req.query.type);
   const start = (page - 1) * pageSize;
+  logAudit(req.user, 'VIEW_TRANSACTIONS', `Viewed transactions for ${c.id}`);
   res.json({ page, pageSize, total: items.length, items: items.slice(start, start + pageSize) });
 });
 
 app.get('/api/customers/:customerId/interactions', (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
+  const c = getViewableCustomer(req, res); if (!c) return;
+  logAudit(req.user, 'VIEW_INTERACTIONS', `Viewed interactions for ${c.id}`);
   res.json(c.interactions);
 });
 app.post('/api/customers/:customerId/interactions', requireRole('RM'), (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
+  const c = getViewableCustomer(req, res); if (!c) return;
   const { channel, notes } = req.body;
   if (!channel || !notes) return res.status(400).json({ error: 'bad_request', message: 'channel and notes are required' });
   const entry = { date: new Date().toISOString().slice(0, 10), rm: req.user.name, channel, notes };
@@ -172,11 +187,12 @@ app.post('/api/customers/:customerId/interactions', requireRole('RM'), (req, res
 const SR_TRANSITIONS = { open: ['in_progress'], in_progress: ['closed', 'open'], closed: [] };
 
 app.get('/api/customers/:customerId/service-requests', (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
+  const c = getViewableCustomer(req, res); if (!c) return;
+  logAudit(req.user, 'VIEW_SERVICE_REQUESTS', `Viewed service requests for ${c.id}`);
   res.json(c.serviceRequests);
 });
 app.post('/api/customers/:customerId/service-requests', requireRole('RM'), (req, res) => {
-  const c = getCustomerOr404(req, res); if (!c) return;
+  const c = getViewableCustomer(req, res); if (!c) return;
   const type = (req.body.type || '').trim();
   if (!type) return res.status(400).json({ error: 'bad_request', message: 'type is required' });
   const id = 'SR-' + Math.floor(5700 + Math.random() * 900);

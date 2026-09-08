@@ -6,6 +6,8 @@
 -- eventual "swap mock server for real DB" step is a mechanical one.
 -- ============================================================
 
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TYPE user_role AS ENUM ('RM', 'Manager', 'Operations', 'Auditor');
 CREATE TYPE segment_type AS ENUM ('Premium', 'Regular');
 CREATE TYPE risk_level AS ENUM ('Low', 'Medium', 'High');
@@ -144,6 +146,20 @@ CREATE TABLE ai_interaction (
   plan_status     plan_status,     -- null unless kind = contact_plan
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Authorized retrieval chunks for RAG. The source_id points back to the
+-- relational record used to build the chunk; raw card/PAN data never belongs here.
+CREATE TABLE customer_embedding (
+  id            BIGSERIAL PRIMARY KEY,
+  customer_id   TEXT NOT NULL REFERENCES customer(id),
+  source_id     TEXT NOT NULL,
+  source_type   TEXT NOT NULL,
+  content       TEXT NOT NULL,
+  embedding     vector(384) NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_customer_embedding_customer ON customer_embedding(customer_id);
+CREATE INDEX idx_customer_embedding_vector ON customer_embedding USING hnsw (embedding vector_cosine_ops);
 
 -- ---------------- Audit ----------------
 

@@ -1,8 +1,8 @@
 /* ============================================================
-   Frontend — talks to the API ONLY. No mock data lives in this
-   file; everything comes from window.API_BASE. This is what lets
-   frontend work start before the real backend exists, and keep
-   working unchanged once it does.
+   DEMO-ONLY LEGACY FRONTEND
+   This file is not part of the production application.
+   The real app is implemented in apps/web (Angular) and
+   apps/api (NestJS).
 ============================================================ */
 
 const state = {
@@ -303,7 +303,7 @@ function renderTopbar() {
   const [title, sub] = titles[state.view];
   return `
   <div class="topbar">
-    <div class="pagehead"><h1>${title}</h1><p>${sub}</p></div>
+    <div class="pagehead"><div class="eyebrow">LEDGER / ${state.user.role.toUpperCase()}</div><h1>${title}</h1><p>${sub}</p></div>
     ${state.view !== 'audit' ? `
     <div class="searchbox"><span class="icon">⌕</span>
       <input type="text" id="global-search" placeholder="Search by name, ID, email or phone…" value="${state.searchQuery}" oninput="onSearch(this.value)">
@@ -326,6 +326,7 @@ function renderSearch() {
   const list = state.searchResults;
   const full = state.user.role === 'RM';
   return `
+  <div class="intro-strip"><div><div class="eyebrow">RELATIONSHIP WORKSPACE</div><h2>Start with the customer, stay with the context.</h2><p>Search your permitted view of the book, then move from signal to action.</p></div><div class="intro-mark">360<span>°</span></div></div>
   <div class="card">
     <div class="section-title">${list.length} customer${list.length !== 1 ? 's' : ''} ${full ? 'in your portfolio' : 'in view'}</div>
     ${list.length === 0 ? `<div class="empty">No customers match “${state.searchQuery}”.</div>` : `
@@ -454,7 +455,7 @@ function renderCopilotTab(c) {
   <div class="ai-panel" style="margin-bottom:22px;">
     <div class="ai-tag"><span class="dot"></span>GROUNDED IN THIS CUSTOMER'S DATA</div>
     ${!p.summary ? `<button class="btn gold" ${p.summaryLoading ? 'disabled' : ''} onclick="generateSummary('${c.id}')">${p.summaryLoading ? 'Generating…' : 'Generate summary'}</button>` :
-      `<div class="ai-text">${p.summary.text}</div><button class="btn small" style="margin-top:10px;" onclick="generateSummary('${c.id}')">Regenerate</button>`}
+      `<div class="ai-text">${p.summary.text}</div><div class="citation-row">Sources <span>${p.summary.groundedIn.join(' · ')}</span></div><button class="btn small" style="margin-top:10px;" onclick="generateSummary('${c.id}')">Regenerate</button>`}
   </div>
 
   <div class="section-title">Next-best-action</div>
