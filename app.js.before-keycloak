@@ -43,114 +43,26 @@ function initials(name) { return name.split(' ').map(p => p[0]).slice(0, 2).join
 
 async function boot() {
   try {
-    if (!window.Keycloak) {
-      throw new Error('Keycloak library failed to load');
-    }
+    state.loginUsers = await api('/auth/users');
+  } catch (e) {
+    state.error = "Can't reach the API at " + window.API_BASE + ". Is the mock server running? (cd mock-server && npm start)";
+  }
+  render();
+}
 
-    const kc = new window.Keycloak(window.KEYCLOAK_CONFIG);
-
-    const authenticated = await kc.init({
-      onLoad: 'login-required',
-      checkLoginIframe: false,
-      pkceMethod: 'S256'
-    });
-
-    if (!authenticated) {
-      state.error = 'Keycloak authentication failed';
-      render();
-      return;
-    }
-
-    state.token = kc.token;
-
-    // Keep the token fresh and update the application state.
-    kc.onTokenExpired = async () => {
-      try {
-        await kc.updateToken(30);
-        state.token = kc.token;
-      } catch (e) {
-        console.error('Unable to refresh Keycloak token', e);
-        await kc.login();
-      }
-    };
-
-    // Get the authenticated user's information from the Keycloak token.
-    const tokenParsed = kc.tokenParsed || {};
-
-    state.user = {
-      id: tokenParsed.sub,
-      name: tokenParsed.name || tokenParsed.preferred_username || 'User',
-      username: tokenParsed.preferred_username || '',
-      email: tokenParsed.email || '',
-      role: getKeycloakRole(tokenParsed),
-      branch: tokenParsed.branch || ''
-    };
-
-    state.view =
-      state.user.role === 'Manager' ? 'dashboard' :
-      state.user.role === 'Auditor' ? 'audit' :
-      state.user.role === 'Operations' ? 'queue' :
-      'search';
-
+async function loginAs(userId) {
+  try {
+    const { token, user } = await api('/auth/login', { method: 'POST', body: { userId } });
+    state.token = token; state.user = user;
+    state.view = user.role === 'Manager' ? 'dashboard' : user.role === 'Auditor' ? 'audit' : user.role === 'Operations' ? 'queue' : 'search';
     if (state.view === 'search') await loadSearch();
     if (state.view === 'dashboard') await loadDashboard();
     if (state.view === 'queue') await loadQueue();
     if (state.view === 'audit') await loadAudit();
-
-  } catch (e) {
-    console.error('Keycloak boot error:', e);
-    state.error = e.message || 'Unable to authenticate with Keycloak';
-  }
-
+  } catch (e) { state.error = e.message; }
   render();
 }
-
-function getKeycloakRole(token) {
-  const roles = token.realm_access?.roles || [];
-
-  if (roles.includes('Auditor')) return 'Auditor';
-  if (roles.includes('Manager')) return 'Manager';
-  if (roles.includes('Operations')) return 'Operations';
-  if (roles.includes('RM')) return 'RM';
-
-  return 'RM';
-}
-
-async function loginAs() {
-  // Login is now handled by Keycloak.
-  // This function is kept so existing HTML references do not break.
-  window.location.href =
-    window.KEYCLOAK_CONFIG.url +
-    '/realms/' +
-    window.KEYCLOAK_CONFIG.realm +
-    '/protocol/openid-connect/auth' +
-    '?client_id=' + encodeURIComponent(window.KEYCLOAK_CONFIG.clientId) +
-    '&redirect_uri=' + encodeURIComponent(window.location.origin) +
-    '&response_type=code' +
-    '&scope=openid';
-}
-
-async function signOut() {
-  state.token = null;
-  state.user = null;
-  state.view = 'login';
-
-  if (window.Keycloak) {
-    const kc = new window.Keycloak(window.KEYCLOAK_CONFIG);
-
-    await kc.init({
-      checkLoginIframe: false
-    }).catch(() => {});
-
-    await kc.logout({
-      redirectUri: window.location.origin
-    });
-
-    return;
-  }
-
-  render();
-}
+function signOut() { Object.assign(state, { token: null, user: null, view: 'login', customerId: null }); render(); boot(); }
 
 /* ---------------- navigation ---------------- */
 

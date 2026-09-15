@@ -1,0 +1,232 @@
+services:
+
+  angular-frontend:
+    build: ./frontend-angular
+    ports:
+      - "4200:80"
+    depends_on:
+      - app
+
+  app:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OLLAMA_URL: http://ollama:11434
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+    depends_on:
+      - postgres
+      - mongodb
+      - keycloak
+      - ollama
+      - otel-collector
+
+  nest-api:
+    build: ./backend-nest
+    ports:
+      - "4100:4100"
+    environment:
+      PORT: 4100
+      DATABASE_URL: postgresql://customer360:customer360_dev@postgres:5432/customer360
+      MONGODB_URL: mongodb://mongodb:27017/customer360
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+      OLLAMA_URL: http://ollama:11434
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/metrics
+    depends_on:
+      - postgres
+      - mongodb
+      - keycloak
+      - ollama
+      - otel-collector
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: customer360
+      POSTGRES_USER: customer360
+      POSTGRES_PASSWORD: customer360_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin_dev
+    ports:
+      - "8080:8080"
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.109.0
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    volumes:
+      - ./otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  mongo_data:
+  ollama_data:
+  grafana_data:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: customer360
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OLLAMA_URL: http://ollama:11434
+    depends_on:
+      - postgres
+      - mongodb
+      - keycloak
+      - ollama
+      - otel-collectorservices:
+  angular-frontend:
+    build: ./frontend-angular
+    ports:
+      - "4200:80"
+    depends_on:
+      - app
+
+  nest-api:
+    build: ./backend-nest
+    ports:
+      - "4100:4100"
+    environment:
+      PORT: "4100"
+      DATABASE_URL: postgresql://customer360:customer360_dev@postgres:5432/customer360
+      MONGODB_URL: mongodb://mongodb:27017/customer360
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+      OLLAMA_URL: http://ollama:11434
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/metrics
+    depends_on:
+      - postgres
+      - mongodb
+      - keycloak
+      - ollama
+      - otel-collector
+
+  app:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OLLAMA_URL: http://ollama:11434
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+    depends_on:
+      - postgres
+      - mongodb
+      - keycloak
+      - ollama
+      - otel-collector
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: customer360
+      POSTGRES_USER: customer360
+      POSTGRES_PASSWORD: customer360_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin_dev
+    ports:
+      - "8080:8080"
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.109.0
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    volumes:
+      - ./otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  mongo_data:
+  ollama_data:
+  grafana_data:

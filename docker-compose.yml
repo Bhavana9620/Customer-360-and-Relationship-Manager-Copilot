@@ -1,4 +1,5 @@
 services:
+
   angular-frontend:
     build: ./frontend-angular
     ports:
@@ -6,17 +7,15 @@ services:
     depends_on:
       - app
 
-  nest-api:
-    build: ./backend-nest
+  app:
+    build: .
     ports:
-      - "4100:4100"
+      - "4000:4000"
     environment:
-      PORT: "4100"
-      DATABASE_URL: postgresql://customer360:customer360_dev@postgres:5432/customer360
-      MONGODB_URL: mongodb://mongodb:27017/customer360
-      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+      PORT: 4000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OLLAMA_URL: http://ollama:11434
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/metrics
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
     depends_on:
       - postgres
       - mongodb
@@ -24,15 +23,17 @@ services:
       - ollama
       - otel-collector
 
-  app:
-    build: .
+  nest-api:
+    build: ./backend-nest
     ports:
-      - "4000:4000"
+      - "4100:4100"
     environment:
-      PORT: "4000"
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OLLAMA_URL: http://ollama:11434
+      PORT: 4100
+      DATABASE_URL: postgresql://customer360:customer360_dev@postgres:5432/customer360
+      MONGODB_URL: mongodb://mongodb:27017/customer360
       KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+      OLLAMA_URL: http://ollama:11434
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/metrics
     depends_on:
       - postgres
       - mongodb
