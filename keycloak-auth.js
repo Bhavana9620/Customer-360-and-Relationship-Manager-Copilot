@@ -1,24 +1,23 @@
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 
-const KEYCLOAK_URL =
-  process.env.KEYCLOAK_URL || 'http://keycloak:8080';
+// Docker-internal URL: used to contact Keycloak
+const KEYCLOAK_INTERNAL_URL =
+  process.env.KEYCLOAK_INTERNAL_URL || 'http://keycloak:8080';
 
-const KEYCLOAK_REALM =
-  process.env.KEYCLOAK_REALM || 'customer360';
-
-const ISSUER =
-  `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}`;
+// Public/browser URL: this is the issuer written inside the JWT
+const KEYCLOAK_ISSUER =
+  process.env.KEYCLOAK_ISSUER ||
+  'http://localhost:8080/realms/customer360';
 
 const JWKS = createRemoteJWKSet(
   new URL(
-    `${ISSUER}/protocol/openid-connect/certs`
+    `${KEYCLOAK_INTERNAL_URL}/realms/customer360/protocol/openid-connect/certs`
   )
 );
 
 async function keycloakAuth(req, res, next) {
   try {
-    const header =
-      req.headers.authorization || '';
+    const header = req.headers.authorization || '';
 
     if (!header.startsWith('Bearer ')) {
       return res.status(401).json({
@@ -33,12 +32,11 @@ async function keycloakAuth(req, res, next) {
       token,
       JWKS,
       {
-        issuer: ISSUER
+        issuer: KEYCLOAK_ISSUER
       }
     );
 
-    const roles =
-      payload.realm_access?.roles || [];
+    const roles = payload.realm_access?.roles || [];
 
     req.user = {
       id: payload.sub,
@@ -74,21 +72,10 @@ async function keycloakAuth(req, res, next) {
 }
 
 function getApplicationRole(roles) {
-  if (roles.includes('Auditor')) {
-    return 'Auditor';
-  }
-
-  if (roles.includes('Manager')) {
-    return 'Manager';
-  }
-
-  if (roles.includes('Operations')) {
-    return 'Operations';
-  }
-
-  if (roles.includes('RM')) {
-    return 'RM';
-  }
+  if (roles.includes('Auditor')) return 'Auditor';
+  if (roles.includes('Manager')) return 'Manager';
+  if (roles.includes('Operations')) return 'Operations';
+  if (roles.includes('RM')) return 'RM';
 
   return 'RM';
 }

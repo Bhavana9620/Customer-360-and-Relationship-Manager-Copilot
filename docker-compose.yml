@@ -15,7 +15,7 @@ services:
       PORT: 4000
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OLLAMA_URL: http://ollama:11434
-      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+      KEYCLOAK_ISSUER: http://localhost:8080/realms/customer360
     depends_on:
       - postgres
       - mongodb
@@ -31,7 +31,7 @@ services:
       PORT: 4100
       DATABASE_URL: postgresql://customer360:customer360_dev@postgres:5432/customer360
       MONGODB_URL: mongodb://mongodb:27017/customer360
-      KEYCLOAK_ISSUER: http://keycloak:8080/realms/customer360
+      KEYCLOAK_ISSUER: http://localhost:8080/realms/customer360
       OLLAMA_URL: http://ollama:11434
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/metrics
     depends_on:

@@ -6,6 +6,7 @@ const USERS = [
   { id: 'u2', username: 's.iyer', name: 'Sanjana Iyer', role: 'Manager', branch: 'Hyderabad Cluster', portfolio: null },
   { id: 'u3', username: 'k.das', name: 'Kabir Das', role: 'Operations', branch: 'Central Ops, Chennai', portfolio: null },
   { id: 'u4', username: 'p.singh', name: 'Priya Singh', role: 'Auditor', branch: 'Group Compliance', portfolio: null },
+  { id: 'u5', username: 'avani', name: 'Avani Bhawsar', role: 'RM', branch: 'Banjara Hills, Hyderabad', portfolio: ['CU10231'] },
 ];
 
 function txn(date, description, amount, type, balanceAfter) {

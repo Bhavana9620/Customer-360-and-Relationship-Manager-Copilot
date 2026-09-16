@@ -36,14 +36,29 @@ async function auth(req, res, next) {
   return keycloakAuth(req, res, (err) => {
     if (err) return next(err);
 
-    const demoUser = USERS.find(u => u.id === 'u1');
+    // Map Keycloak users to the existing application users.
+    const userMap = {
+      'r.mehta': 'u1',
+      's.iyer': 'u2',
+      'k.das': 'u3',
+      'p.singh': 'u4',
+      'avani': 'u5'
+    };
 
-    if (req.user.role === 'RM' && demoUser) {
-      req.user = {
-        ...demoUser,
-        username: req.user.username,
-        email: req.user.email
-      };
+    const applicationUserId = userMap[req.user.username];
+
+    if (applicationUserId) {
+      const applicationUser = USERS.find(
+        u => u.id === applicationUserId
+      );
+
+      if (applicationUser) {
+        req.user = {
+          ...applicationUser,
+          username: req.user.username,
+          email: req.user.email
+        };
+      }
     }
 
     next();
