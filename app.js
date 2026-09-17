@@ -56,7 +56,8 @@ async function boot() {
     });
 
     if (!authenticated) {
-      state.error = 'Keycloak authentication failed';
+      // User is not logged in yet.
+      // Show the application's Keycloak login page.
       render();
       return;
     }
@@ -348,14 +349,13 @@ function renderLogin() {
       <div class="login-sub">Customer 360 &amp; Relationship Copilot — sign in to continue</div>
       ${state.loginUsers.map(u => `
         <div class="user-pick" onclick="loginAs('${u.id}')">
-          <div><div class="n">${u.name}</div><div class="r">${u.role} · ${u.branch}</div></div>
+          <div><div class="n">${u.name}</div><div class="r">${u.role}· ${u.branch}</div></div>
           <div class="btn small">Sign in →</div>
         </div>`).join('')}
       <div class="login-foot">Frontend calling the live mock API at <span class="mono">${window.API_BASE}</span>. Swap that URL for the real backend later — this screen and everything else stays the same.</div>
     </div>
   </div>`;
 }
-
 function renderSidebar() {
   const u = state.user;
   const items = {
