@@ -12,6 +12,7 @@ const state = {
   customer: null, tabData: {},           // tabData[tab] = fetched data for current customer
   searchQuery: '', searchResults: [],
   dashboard: null, queue: [],
+  rms: [],
   audit: [], auditUserFilter: '', auditTextFilter: '',
   copilot: {}, chatByCustomer: {},
   loading: {},
@@ -161,6 +162,7 @@ async function go(view, extra) {
   state.error = null;
   render(); // show a loading shell immediately
   if (view === 'search') await loadSearch();
+  if (view === 'add-customer' && state.user.role === 'Manager') await loadRMs();
   if (view === 'dashboard') await loadDashboard();
   if (view === 'queue') await loadQueue();
   if (view === 'audit') await loadAudit();
@@ -359,8 +361,8 @@ function renderLogin() {
 function renderSidebar() {
   const u = state.user;
   const items = {
-    RM: [['search', 'Customer search'], ['queue', 'My service requests']],
-    Manager: [['dashboard', 'Portfolio dashboard'], ['search', 'Customer search']],
+    RM: [['search', 'Customer search'], ['add-customer', 'Add customer'], ['queue', 'My service requests']],
+    Manager: [['dashboard', 'Portfolio dashboard'], ['search', 'Customer search'], ['add-customer', 'Add customer']],
     Operations: [['queue', 'Service request queue'], ['search', 'Customer search']],
     Auditor: [['audit', 'Audit log'], ['search', 'Customer search']],
   }[u.role];
@@ -383,6 +385,7 @@ function renderSidebar() {
 function renderTopbar() {
   const titles = {
     search: ['Customer search', 'Find a customer to open their 360° profile.'],
+    'add-customer': ['Add customer', 'Create a new customer and add them to your portfolio.'],
     profile: ['Customer profile', ''],
     dashboard: ['Portfolio dashboard', 'Team-level view — no individual customer detail.'],
     queue: [state.user.role === 'Operations' ? 'Service request queue' : 'My service requests', ''],
@@ -402,6 +405,7 @@ function renderTopbar() {
 function renderView() {
   switch (state.view) {
     case 'search': return renderSearch();
+    case 'add-customer': return renderAddCustomer();
     case 'profile': return renderProfile();
     case 'dashboard': return renderDashboard();
     case 'queue': return renderQueue();
@@ -430,6 +434,167 @@ function renderSearch() {
         </tr>`).join('')}</tbody>
     </table>`}
   </div>`;
+}
+
+
+function renderAddCustomer() {
+  const isManager = state.user.role === 'Manager';
+
+  const rmOptions = state.rms.length
+    ? state.rms.map(rm => `
+        <option value="${rm.id}">
+          ${rm.name} — ${rm.branch}
+        </option>
+      `).join('')
+    : '<option value="">No RM available</option>';
+
+  return `
+  <div class="card">
+    <div class="section-title">Add new customer</div>
+    <p style="margin:0 0 22px;color:var(--ink-soft);">
+      ${isManager
+        ? 'Create a customer and assign them to an RM.'
+        : 'Create a customer and automatically add them to your portfolio.'}
+    </p>
+
+    <form onsubmit="submitAddCustomer(event)">
+      <div class="grid2">
+
+        <div class="kv">
+          <div class="k">Full name *</div>
+          <input
+            type="text"
+            id="new-customer-name"
+            placeholder="e.g. Rahul Sharma"
+            required
+          >
+        </div>
+
+        <div class="kv">
+          <div class="k">Email *</div>
+          <input
+            type="email"
+            id="new-customer-email"
+            placeholder="e.g. rahul@example.com"
+            required
+          >
+        </div>
+
+        <div class="kv">
+          <div class="k">Phone *</div>
+          <input
+            type="tel"
+            id="new-customer-phone"
+            placeholder="e.g. 9876543210"
+            required
+          >
+        </div>
+
+        <div class="kv">
+          <div class="k">Segment</div>
+          <select id="new-customer-segment">
+            <option value="Regular">Regular</option>
+            <option value="Premium">Premium</option>
+          </select>
+        </div>
+
+        ${isManager ? `
+        <div class="kv">
+          <div class="k">Assign to RM *</div>
+          <select id="new-customer-rm" required>
+            <option value="">Select an RM</option>
+            ${rmOptions}
+          </select>
+        </div>
+        ` : ''}
+
+        <div class="kv" style="grid-column:1 / -1;">
+          <div class="k">Address</div>
+          <input
+            type="text"
+            id="new-customer-address"
+            placeholder="Customer address"
+          >
+        </div>
+
+      </div>
+
+      <div id="add-customer-message" style="margin-top:18px;"></div>
+
+      <div style="margin-top:22px;display:flex;gap:10px;">
+        <button type="submit" class="btn primary">Create customer</button>
+        <button type="button" class="btn" onclick="go('search')">Cancel</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+async function loadRMs() {
+  try {
+    state.rms = await api('/users/rms');
+  } catch (e) {
+    state.rms = [];
+    state.error = e.message;
+  }
+}
+
+async function submitAddCustomer(event) {
+  event.preventDefault();
+
+  const message = document.getElementById('add-customer-message');
+
+  const name = document.getElementById('new-customer-name').value.trim();
+  const email = document.getElementById('new-customer-email').value.trim();
+  const phone = document.getElementById('new-customer-phone').value.trim();
+  const segment = document.getElementById('new-customer-segment').value;
+  const address = document.getElementById('new-customer-address').value.trim();
+
+  const assignedRmId =
+    state.user.role === 'Manager'
+      ? document.getElementById('new-customer-rm').value
+      : null;
+
+  message.innerHTML =
+    '<div class="note">Creating customer…</div>';
+
+  try {
+    const body = {
+      name,
+      email,
+      phone,
+      segment,
+      address
+    };
+
+    if (assignedRmId) {
+      body.assignedRmId = assignedRmId;
+    }
+
+    const data = await api('/customers', {
+      method: 'POST',
+      body
+    });
+
+    const successText =
+      state.user.role === 'Manager'
+        ? `Customer ${data.customer.id} created successfully and assigned to the selected RM.`
+        : `Customer ${data.customer.id} created successfully and added to your portfolio.`;
+
+    message.innerHTML =
+      `<div class="note" style="color:var(--teal);">
+        ${successText}
+      </div>`;
+
+    event.target.reset();
+
+    await loadSearch();
+
+  } catch (error) {
+    message.innerHTML =
+      `<div class="banner" style="background:var(--rust-soft);color:var(--rust);">
+        ${error.message}
+      </div>`;
+  }
 }
 
 function renderProfile() {

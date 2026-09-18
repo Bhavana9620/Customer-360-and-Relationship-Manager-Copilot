@@ -144,6 +144,155 @@ app.use('/api', (req, res, next) => {
 
 // ---------------- Customers ----------------
 
+
+app.get('/api/users/rms', requireRole('Manager'), (req, res) => {
+  res.json(
+    USERS
+      .filter(u => u.role === 'RM')
+      .map(u => ({
+        id: u.id,
+        name: u.name,
+        username: u.username,
+        branch: u.branch
+      }))
+  );
+});
+
+
+
+
+// Create a new customer.
+// RM creates and automatically owns the customer.
+// Manager support will be added after the RM flow is tested.
+app.post('/api/customers', requireRole('RM', 'Manager'), (req, res) => {
+  const {
+    name,
+    email,
+    phone,
+    segment = 'Regular',
+    address = '',
+    assignedRmId = null
+  } = req.body || {};
+
+  if (!name || !email || !phone) {
+    return res.status(400).json({
+      error: 'validation_error',
+      message: 'Name, email and phone are required'
+    });
+  }
+
+  const cleanName = String(name).trim();
+  const cleanEmail = String(email).trim().toLowerCase();
+  const cleanPhone = String(phone).trim();
+  const cleanAddress = String(address).trim();
+
+  if (!cleanName || !cleanEmail || !cleanPhone) {
+    return res.status(400).json({
+      error: 'validation_error',
+      message: 'Name, email and phone cannot be empty'
+    });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return res.status(400).json({
+      error: 'validation_error',
+      message: 'Please provide a valid email address'
+    });
+  }
+
+  if (req.user.role === 'Manager') {
+    if (!assignedRmId) {
+      return res.status(400).json({
+        error: 'validation_error',
+        message: 'Manager must select an RM for the new customer'
+      });
+    }
+
+    const assignedRm = USERS.find(
+      u => u.id === assignedRmId && u.role === 'RM'
+    );
+
+    if (!assignedRm) {
+      return res.status(400).json({
+        error: 'validation_error',
+        message: 'Selected user is not a valid RM'
+      });
+    }
+  }
+
+  if (CUSTOMERS.some(c => c.email.toLowerCase() === cleanEmail)) {
+    return res.status(409).json({
+      error: 'duplicate_customer',
+      message: 'A customer with this email already exists'
+    });
+  }
+
+  const numericIds = CUSTOMERS
+    .map(c => Number(String(c.id).replace('CU', '')))
+    .filter(Number.isFinite);
+
+  const nextNumber = Math.max(10230, ...numericIds) + 1;
+  const customerId = `CU${nextNumber}`;
+
+  const customer = {
+    id: customerId,
+    name: cleanName,
+    email: cleanEmail,
+    phone: cleanPhone,
+    segment,
+    kyc: 'Pending',
+    riskFlag: 'Low',
+    consent: {
+      marketing: false,
+      dataSharing: false,
+      updatedOn: new Date().toISOString().slice(0, 10)
+    },
+    address: cleanAddress,
+    accounts: [],
+    loans: [],
+    cards: [],
+    transactions: [],
+    interactions: [],
+    serviceRequests: []
+  };
+
+  CUSTOMERS.push(customer);
+
+  const targetRmId =
+    req.user.role === 'Manager' ? assignedRmId : req.user.id;
+
+  const targetRm = USERS.find(
+    u => u.id === targetRmId && u.role === 'RM'
+  );
+
+  if (!targetRm) {
+    CUSTOMERS.pop();
+
+    return res.status(400).json({
+      error: 'validation_error',
+      message: 'Unable to determine the customer RM'
+    });
+  }
+
+  if (!Array.isArray(targetRm.portfolio)) {
+    targetRm.portfolio = [];
+  }
+
+  targetRm.portfolio.push(customerId);
+
+  logAudit(
+    req.user,
+    'CREATE_CUSTOMER',
+    `Created customer ${customerId} and assigned to ${targetRm.name}`
+  );
+
+  res.status(201).json({
+    message: 'Customer created successfully',
+    customer: toCustomerProfile(customer, req.user)
+  });
+});
+
+
 app.get('/api/customers', (req, res) => {
   const q = (req.query.q || '').toLowerCase();
   let list = req.user.role === 'RM' ? CUSTOMERS.filter(c => req.user.portfolio.includes(c.id)) : CUSTOMERS;
